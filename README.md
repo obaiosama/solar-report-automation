@@ -1,8 +1,38 @@
 # Solar Report Automation
 
-A pipeline that turns a customer's utility-bill PDFs into a finished solar performance report. A customer submits a form with twelve monthly bills, a pre-solar usage bill and a production file. The system reads the bills with an AI model, writes only trustworthy figures into a report sheet, exports the sheet as a PDF, and emails the business owner. Anything it cannot read reliably is flagged for a human instead of guessed.
+A pipeline that turns a customer's utility-bill PDFs into a filled-in solar performance report. A customer submits a form with twelve monthly bills, a pre-solar usage bill and a production file. The system reads the bills with an AI model, writes only trustworthy figures into a report sheet, exports the sheet as a PDF, and emails the business owner. Anything it cannot read reliably is flagged for a human instead of guessed.
 
 Built for a US solar business.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    A[Customer form submission] --> B[Webhook]
+    B --> C{Required fields present?}
+    C -- No --> X[Ignore and alert operations inbox]
+    C -- Yes --> D{Returning customer?}
+    D -- No --> E[Create Drive folder and copy report template]
+    D -- Yes --> F[Look up existing folder and sheet]
+    E --> G[(Customer data store)]
+    F --> G
+    G --> H[Download bills and store in customer folder]
+    H --> I[Gemini: structured extraction from each bill PDF]
+    I --> J{Confidence high and newest bill for that month?}
+    J -- No --> K[Leave cell empty and flag for review]
+    J -- Yes --> L[Write figures to report sheet]
+    L --> M[Gemini: read pre-solar year from bar chart]
+    M --> N{All 12 months read?}
+    N -- Yes --> O[Write pre-solar column]
+    N -- No --> K
+    O --> P[Read production file]
+    K --> P
+    P --> Q[Export sheet as PDF]
+    Q --> R{Status}
+    R -- Complete --> S[Email owner: report ready]
+    R -- Needs review --> T[Email owner: flagged figures]
+    R -- Months missing --> U[Email customer: please resubmit]
+```
 
 ## How a submission flows
 
@@ -11,7 +41,7 @@ Built for a US solar business.
 3. **A workspace per customer.** A first submission creates a Drive folder and a copy of the report template. A returning customer reuses theirs, found through a lookup table.
 4. **Bills in.** Each bill is downloaded, stored in the customer's folder, and sent to Gemini for structured extraction.
 5. **Report filled.** Accepted figures are written into the report sheet's monthly cells.
-6. **Pre-solar year.** The previous year's usage is read from the bar chart on the pre-solar bill.
+6. **Pre-solar year.** The previous year's usage is read from a bar chart on the pre-solar bill.
 7. **Production file.** The customer's solar production figures are read and kept for the report.
 8. **Export and notify.** The sheet is exported as a PDF and emailed with a status: complete, needs review, or missing months.
 
@@ -28,4 +58,11 @@ Built for a US solar business.
 
 ## Stack
 
-Webhook intake, Google Drive, Google Sheets, Gmail, Gemini (structured extraction from PDFs), a data store for state, built on a no-code workflow platform
+| Layer | Tools |
+|---|---|
+| Intake | GoHighLevel form, webhooks |
+| Orchestration | Make.com |
+| AI extraction | Gemini (structured extraction from PDFs and chart images) |
+| Documents | Google Drive, Google Sheets (template copy, PDF export) |
+| State | Make data store (customer lookup, per-month year tracking, account binding) |
+| Notifications | Gmail |
