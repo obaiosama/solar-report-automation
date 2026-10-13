@@ -7,31 +7,36 @@ Built for a US solar business.
 ## Architecture
 
 ```mermaid
-flowchart TD
-    A[Customer form submission] --> B[Webhook]
-    B --> C{Required fields present?}
-    C -- No --> X[Ignore and alert operations inbox]
-    C -- Yes --> D{Returning customer?}
-    D -- No --> E[Create Drive folder and copy report template]
-    D -- Yes --> F[Look up existing folder and sheet]
-    E --> G[(Customer data store)]
-    F --> G
-    G --> H[Download bills and store in customer folder]
-    H --> I[Gemini: structured extraction from each bill PDF]
-    I --> J{Confidence high and newest bill for that month?}
-    J -- No --> K[Leave cell empty and flag for review]
-    J -- Yes --> L[Write figures to report sheet]
-    L --> M[Gemini: read pre-solar year from bar chart]
-    M --> N{All 12 months read?}
-    N -- Yes --> O[Write pre-solar column]
-    N -- No --> K
-    O --> P[Read production file]
-    K --> P
-    P --> Q[Export sheet as PDF]
-    Q --> R{Status}
-    R -- Complete --> S[Email owner: report ready]
-    R -- Needs review --> T[Email owner: flagged figures]
-    R -- Months missing --> U[Email customer: please resubmit]
+flowchart LR
+    subgraph IN["1 · Intake"]
+        A["Customer form<br/>(GoHighLevel)"] --> B["Webhook +<br/>validation"]
+    end
+    subgraph WS["2 · Customer workspace"]
+        C[("Customer<br/>data store")] --> D["Drive folder +<br/>report template"]
+    end
+    subgraph AI["3 · Gemini extraction"]
+        E["12 monthly bills<br/>meter table + charges"]
+        F["Pre-solar bar chart"]
+        G["Production file"]
+    end
+    subgraph OUT["4 · Report + delivery"]
+        H["Report sheet<br/>(Google Sheets)"] --> I["PDF export"] --> J["Gmail:<br/>complete / review / missing"]
+    end
+    B --> C
+    D --> E & F & G
+    E & F & G --> H
+    E -. low confidence .-> K["Flag for<br/>human review"]
+    K -.-> J
+    classDef ai fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
+    classDef warn fill:#fff7ed,stroke:#f97316,color:#7c2d12
+    class E,F,G ai
+    class K warn
+    classDef node fill:#ffffff,stroke:#94a3b8,color:#0f172a
+    class A,B,C,D,H,I,J node
+    style IN fill:#f8fafc,stroke:#cbd5e1
+    style WS fill:#f8fafc,stroke:#cbd5e1
+    style AI fill:#eef2ff,stroke:#a5b4fc
+    style OUT fill:#f8fafc,stroke:#cbd5e1
 ```
 
 ## How a submission flows
